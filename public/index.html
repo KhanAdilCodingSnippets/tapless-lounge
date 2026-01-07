@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Join Tapless Lounge to connect in real-time rooms. Simple, fast, and secure." />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta property="og:title" content="Tapless Lounge" />
+<meta property="og:image" content="/preview.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
+    <title>TAPLESS | Premiere Access</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cinema-red: #e50914;
+            --cinema-gold: #fbbf24;
+            --deep-dark: #050505;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--deep-dark);
+            color: white;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        h1, h2, h3, .poster-font { font-family: 'Bebas Neue', cursive; letter-spacing: 1px; }
+
+        /* --- 1. SPOTLIGHT BACKGROUND --- */
+        .spotlight-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; pointer-events: none; overflow: hidden;
+            background: radial-gradient(circle at center, #1a0505 0%, #000000 100%);
+        }
+        .spotlight {
+            position: absolute;
+            top: -50%; left: 50%;
+            width: 200%; height: 200%;
+            background: conic-gradient(from 180deg at 50% 50%, 
+                rgba(229, 9, 20, 0.0) 0deg, 
+                rgba(229, 9, 20, 0.15) 20deg, 
+                rgba(229, 9, 20, 0.0) 40deg);
+            transform-origin: center;
+            animation: rotate-light 10s ease-in-out infinite alternate;
+        }
+        .spotlight-2 {
+            animation-delay: -5s;
+            background: conic-gradient(from 200deg at 50% 50%, 
+                rgba(251, 191, 36, 0.0) 0deg, 
+                rgba(251, 191, 36, 0.1) 25deg, 
+                rgba(251, 191, 36, 0.0) 50deg);
+        }
+        @keyframes rotate-light {
+            0% { transform: translateX(-50%) rotate(-25deg); }
+            100% { transform: translateX(-50%) rotate(25deg); }
+        }
+
+        /* --- 2. FLOATING MAGIC ICONS --- */
+        .magic-icon {
+            position: fixed;
+            color: rgba(255, 255, 255, 0.05);
+            animation: floaty 15s infinite ease-in-out;
+            z-index: 0;
+        }
+        .i-star { top: 15%; left: 10%; width: 60px; animation-delay: 0s; color: rgba(251, 191, 36, 0.2); }
+        .i-film { bottom: 20%; right: 10%; width: 100px; animation-delay: -5s; }
+        .i-cam { top: 30%; right: 30%; width: 50px; animation-delay: -2s; }
+        
+        @keyframes floaty {
+            0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+            50% { transform: translateY(-30px) rotate(15deg) scale(1.1); }
+        }
+
+        /* --- 3. 3D FLIP MECHANICS --- */
+        .flip-container { perspective: 1000px; }
+        .flipper {
+            transition: 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
+            transform-style: preserve-3d;
+            position: relative;
+            width: 100%; height: 100%;
+        }
+        .flipper.is-flipped { transform: rotateY(180deg); }
+
+        /* --- 4. CINEMA TICKET CARD FACES --- */
+        .front, .back {
+            backface-visibility: hidden;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: auto;
+            
+            /* Cinema Card Style */
+            background: rgba(20, 0, 0, 0.8);
+            box-shadow: 0 0 50px rgba(229, 9, 20, 0.2);
+            backdrop-filter: blur( 15px );
+            border: 2px solid var(--cinema-gold);
+            border-radius: 16px;
+            padding: 3rem;
+            
+            /* Ticket cutout effect using CSS mask */
+            mask-image: radial-gradient(circle at 0 50%, transparent 10px, black 11px), 
+                        radial-gradient(circle at 100% 50%, transparent 10px, black 11px);
+            mask-composite: intersect;
+        }
+        .front { z-index: 2; transform: rotateY(0deg); }
+        .back { transform: rotateY(180deg); }
+
+        /* --- 5. INPUTS & BUTTONS --- */
+        .cinema-input {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            transition: all 0.3s;
+            font-weight: 700;
+        }
+        .cinema-input:focus {
+            border-color: var(--cinema-gold);
+            background: rgba(0,0,0,0.8);
+            outline: none;
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.2);
+        }
+        .btn-gold {
+            background: linear-gradient(45deg, #fbbf24, #d97706);
+            color: #1a0505;
+            font-family: 'Bebas Neue', cursive;
+            font-size: 1.5rem;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4);
+            transition: transform 0.2s;
+        }
+        .btn-gold:hover { transform: scale(1.05); }
+        
+        /* Decorative corner screws */
+        .screw {
+            position: absolute; width: 8px; height: 8px; 
+            background: #fbbf24; border-radius: 50%; 
+            box-shadow: 0 0 5px #fbbf24;
+        }
+
+    </style>
+</head>
+<body class="h-screen w-full flex items-center justify-center relative px-4">
+
+    <div class="spotlight-container">
+        <div class="spotlight"></div>
+        <div class="spotlight spotlight-2"></div>
+    </div>
+    
+    <svg class="magic-icon i-star" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+    <svg class="magic-icon i-film" fill="currentColor" viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>
+    <svg class="magic-icon i-cam" fill="currentColor" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+
+
+    <div class="flip-container w-full max-w-[450px] h-[580px]"> 
+        <div class="flipper" id="card-flipper">
+            
+            <div class="front">
+                <div class="screw top-3 left-3"></div><div class="screw top-3 right-3"></div>
+                <div class="screw bottom-3 left-3"></div><div class="screw bottom-3 right-3"></div>
+
+                <div class="text-center mb-10">
+                    <h1 class="text-5xl mb-1 text-white drop-shadow-lg">TAPLESS</h1>
+                    <div class="h-1 w-16 bg-red-600 mx-auto mb-2"></div>
+                    <p class="text-yellow-500 font-bold tracking-[0.3em] text-xs uppercase">Admit One</p>
+                </div>
+
+                <div id="error-msg" class="hidden bg-red-900/80 border border-red-500 text-white text-xs p-3 rounded mb-6 text-center font-bold"></div>
+
+                <form id="login-form" class="space-y-6">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Viewer ID (Email)</label>
+                        <input type="email" id="login-email" class="cinema-input w-full p-4 rounded-lg text-sm" placeholder="viewer@cinema.com" required>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Passcode</label>
+                        <input type="password" id="login-password" class="cinema-input w-full p-4 rounded-lg text-sm" placeholder="••••••••" required>
+                    </div>
+                    
+                    <button type="submit" class="btn-gold w-full p-3 rounded-lg mt-4">
+                        ENTER THEATER
+                    </button>
+                </form>
+                
+                <div class="text-center mt-8 pt-6 border-t border-dashed border-white/20">
+                    <p class="text-xs text-gray-400 font-bold cursor-pointer hover:text-white transition uppercase tracking-wide" onclick="rotateCard()">
+                        Need a Ticket? <span class="text-yellow-500 underline">Box Office</span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="back">
+                <div class="screw top-3 left-3"></div><div class="screw top-3 right-3"></div>
+                <div class="screw bottom-3 left-3"></div><div class="screw bottom-3 right-3"></div>
+
+                <div class="text-center mb-8">
+                    <h1 class="text-4xl mb-1 text-white">VIP ACCESS</h1>
+                    <div class="h-1 w-16 bg-yellow-500 mx-auto mb-2"></div>
+                    <p class="text-red-500 font-bold tracking-[0.3em] text-xs uppercase">New Member Registration</p>
+                </div>
+
+                <form id="register-form" class="space-y-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Stage Name</label>
+                        <input type="text" id="reg-username" class="cinema-input w-full p-4 rounded-lg text-sm" placeholder="Director Smith" required>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Email</label>
+                        <input type="email" id="reg-email" class="cinema-input w-full p-4 rounded-lg text-sm" placeholder="viewer@cinema.com" required>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Create Passcode</label>
+                        <input type="password" id="reg-password" class="cinema-input w-full p-4 rounded-lg text-sm" placeholder="••••••••" required>
+                    </div>
+                    
+                    <button type="submit" class="btn-gold w-full p-3 rounded-lg mt-2 bg-gradient-to-r from-red-600 to-red-800 text-white border-none shadow-red-900/50">
+                        PRINT TICKET
+                    </button>
+                </form>
+                
+                <div class="text-center mt-6 pt-6 border-t border-dashed border-white/20">
+                    <p class="text-xs text-gray-400 font-bold cursor-pointer hover:text-white transition uppercase tracking-wide" onclick="rotateCard()">
+                        Have a Ticket? <span class="text-red-500 underline">Enter Theater</span>
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function rotateCard() {
+            document.getElementById('card-flipper').classList.toggle('is-flipped');
+            // Clear error messages when flipping
+            document.getElementById('error-msg').classList.add('hidden');
+        }
+    </script>
+    <script src="client-auth.js"></script>
+</body>
+</html>

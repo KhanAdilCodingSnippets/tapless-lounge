@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Join Tapless Lounge to connect in real-time rooms. Simple, fast, and secure." />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta property="og:title" content="Tapless Lounge" />
+<meta property="og:image" content="/preview.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
+    <title>TAPLESS | Theater</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root { --deep-dark: #050505; --neon-gold: #fbbf24; }
+      body { font-family: "Montserrat", sans-serif; background-color: var(--deep-dark); color: white; overflow: hidden; }
+      h1, h2, .poster-font { font-family: "Bebas Neue", cursive; letter-spacing: 1.5px; }
+
+      .modern-input { background: transparent; border: none; border-bottom: 2px solid #333; color: white; padding: 10px 0; width: 100%; outline: none; transition: border-color 0.3s ease; }
+      .modern-input:focus { border-bottom-color: var(--neon-gold); }
+
+      .screen-container { box-shadow: 0 0 100px rgba(0,0,0,0.9); border: 1px solid #222; background: #000; position: relative; }
+      .chat-glass { background: rgba(10, 10, 10, 0.8); backdrop-filter: blur(20px); border-left: 1px solid rgba(255, 255, 255, 0.05); }
+      .reaction-btn { transition: transform 0.1s; cursor: pointer; font-size: 1.2rem; }
+      .reaction-btn:hover { transform: scale(1.3); }
+
+      .floater { position: absolute; bottom: 20px; right: 80px; font-size: 2rem; pointer-events: none; animation: floatUp 2s ease-out forwards; z-index: 50; }
+      @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-300px) scale(1.5); } }
+
+      .gesture-cam { position: fixed; bottom: 20px; left: 20px; width: 240px; background: #000; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.5); z-index: 100; transform: translate3d(0,0,0); }
+      .cam-header { background: rgba(30,30,30,0.9); color: white; padding: 8px 12px; cursor: grab; font-size: 10px; font-weight: 700; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); user-select: none; }
+      .cam-header:active { cursor: grabbing; }
+      
+      /* MIRRORED CAMERA */
+      #webcam { width: 100%; height: 180px; object-fit: cover; transform: scaleX(-1); display: block; }
+
+      .shield { position: absolute; inset: 0; z-index: 20; background: transparent; }
+      .ai-status { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: red; z-index: 101; }
+      .ai-active { background: #10b981; box-shadow: 0 0 10px #10b981; }
+      
+      .gesture-toast {
+          position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+          background: rgba(0,0,0,0.7); border: 1px solid var(--neon-gold);
+          color: var(--neon-gold); padding: 20px 40px; font-size: 24px; font-weight: 900;
+          border-radius: 10px; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+          text-transform: uppercase; letter-spacing: 2px;
+      }
+    </style>
+  </head>
+  <body class="h-screen flex flex-col">
+
+    <div id="auth-modal" class="fixed inset-0 bg-black z-[999] flex flex-col items-center justify-center hidden">
+        <h2 class="text-4xl poster-font text-white mb-4">PRIVATE ROOM</h2>
+        <div class="w-64">
+            <input type="password" id="password-input" class="modern-input text-center text-xl" placeholder="Enter Password">
+        </div>
+        <button onclick="attemptJoinWithPassword()" class="mt-6 bg-white text-black px-8 py-2 font-bold hover:bg-yellow-400 transition uppercase tracking-widest">
+            Enter Theater
+        </button>
+        <p id="auth-error" class="text-red-500 text-xs mt-4 hidden">Incorrect Password</p>
+    </div>
+
+    <div id="file-picker-overlay" class="fixed inset-0 bg-black/95 z-[60] hidden flex flex-col items-center justify-center p-8 backdrop-blur-md">
+        <h2 class="text-5xl poster-font text-white mb-2 tracking-wide"><span class="text-yellow-500">BROADCAST</span> STATION</h2>
+        <p class="text-gray-400 text-sm mb-10 text-center max-w-md font-light">Select source.</p>
+        <div class="grid grid-cols-2 gap-6 w-full max-w-2xl">
+            <label class="cursor-pointer group relative">
+                <input type="file" id="local-file-input" class="absolute opacity-0 w-full h-full cursor-pointer" accept="video/*">
+                <div class="h-40 border border-white/10 rounded-xl bg-white/5 hover:bg-white/10 transition flex flex-col items-center justify-center gap-3">
+                    <span class="text-xs font-bold text-gray-300 group-hover:text-white uppercase">📁 Select File</span>
+                </div>
+            </label>
+            <button onclick="startScreenShare()" class="h-40 border border-white/10 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 transition flex flex-col items-center justify-center gap-3">
+                <span class="text-xs font-bold text-blue-300 uppercase">📺 Screen Share</span>
+            </button>
+        </div>
+    </div>
+
+    <nav class="h-16 flex items-center justify-between px-6 bg-black/80 backdrop-blur border-b border-white/5 z-20">
+      <div class="flex items-center gap-4">
+        <a href="dashboard.html" class="text-gray-400 hover:text-white text-[10px] font-bold uppercase tracking-widest">← Exit</a>
+        <button onclick="toggleCamVisibility()" id="nav-cam-btn" class="hidden text-yellow-500 border border-yellow-500/30 px-3 py-1 rounded bg-yellow-500/10 text-[9px] font-bold uppercase">AI Cam</button>
+      </div>
+      <div>
+        <h1 id="room-title" class="text-lg text-white tracking-wide font-bold">LOADING...</h1>
+      </div>
+      <button onclick="copyLink()" class="text-gray-400 hover:text-white text-[10px] font-bold uppercase">Share Link</button>
+    </nav>
+
+    <div class="flex-1 flex overflow-hidden relative">
+      <div class="flex-1 bg-black flex items-center justify-center p-6 relative">
+        <div class="screen-container w-full max-w-6xl aspect-video bg-black rounded-lg overflow-hidden relative group">
+          <div id="audience-shield" class="shield hidden"></div>
+          
+          <div id="player" class="w-full h-full hidden"></div> 
+          <video id="local-player" class="w-full h-full hidden bg-black object-contain"></video> 
+          
+          <div id="gesture-toast" class="gesture-toast">PAUSED</div>
+        </div>
+
+        <div id="sync-status" class="absolute top-10 bg-black/80 text-white px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest opacity-0 transition border border-white/10">Synced</div>
+        <div id="reaction-zone" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+      </div>
+
+      <div class="w-80 chat-glass flex flex-col z-20 border-l border-white/5">
+        <div class="p-4 border-b border-white/5 flex justify-between items-center">
+          <h3 class="poster-font text-lg text-white tracking-wide">CHAT</h3>
+          <span class="text-[10px] bg-white/10 px-2 py-1 rounded text-gray-400" id="role-badge">Guest</span>
+        </div>
+        
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <div class="text-center text-[10px] text-gray-600 mt-10">Welcome to the room.</div>
+        </div>
+
+        <div class="px-4 py-2 border-t border-white/5 flex justify-around">
+            <span onclick="sendReaction('❤️')" class="reaction-btn">❤️</span>
+            <span onclick="sendReaction('😂')" class="reaction-btn">😂</span>
+            <span onclick="sendReaction('😮')" class="reaction-btn">😮</span>
+            <span onclick="sendReaction('🔥')" class="reaction-btn">🔥</span>
+            <span onclick="sendReaction('👏')" class="reaction-btn">👏</span>
+        </div>
+
+        <div class="p-4 border-t border-white/5">
+          <form id="chat-form" class="flex gap-2">
+            <input type="text" id="chat-input" class="modern-input text-xs" placeholder="Type a message..." autocomplete="off" />
+            <button type="submit" class="text-xs font-bold uppercase hover:text-yellow-500">Send</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div id="gesture-cam" class="gesture-cam hidden">
+      <div id="cam-header" class="cam-header">
+        <span>Gesture AI</span>
+        <button onclick="toggleCamVisibility()" class="opacity-50 hover:opacity-100">✕</button>
+      </div>
+      <div class="relative bg-black">
+        <video id="webcam" playsinline autoplay muted></video>
+        <div id="ai-dot" class="ai-status"></div>
+        <div class="absolute inset-y-0 left-0 w-1/4 border-r border-white/10 pointer-events-none"></div>
+        <div class="absolute inset-y-0 right-0 w-1/4 border-l border-white/10 pointer-events-none"></div>
+      </div>
+    </div>
+
+    <script>
+      const socket = io({ transports: ['websocket'], upgrade: false });
+      const user = JSON.parse(localStorage.getItem("user"));
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomId = urlParams.get("id");
+
+      let localPlayer = document.getElementById('local-player');
+      let player; // YT Player Object
+      let isHost = false, isLocalMode = false;
+      let hands, camera, lastActionTime = 0;
+      
+      if (!user || !roomId) window.location.href = "dashboard.html";
+
+      // === 1. CONNECT & JOIN ===
+      attemptJoin(null);
+
+      function attemptJoin(password) {
+        socket.emit("join-room", roomId, user._id, password);
+      }
+
+      function attemptJoinWithPassword() {
+        const pwd = document.getElementById('password-input').value;
+        attemptJoin(pwd);
+      }
+
+      socket.on('auth-success', () => {
+        document.getElementById('auth-modal').classList.add('hidden');
+        initRoomDetails();
+      });
+
+      socket.on('auth-failed', () => {
+        // If Host Bypass failed for some reason, show modal
+        document.getElementById('auth-modal').classList.remove('hidden');
+        document.getElementById('auth-error').classList.remove('hidden');
+      });
+
+      socket.on('error-message', (msg) => { alert("Server Error: " + msg); });
+
+      // === 2. ROOM SETUP ===
+      async function initRoomDetails() {
+        try {
+          const res = await fetch(`/api/rooms/list`);
+          const rooms = await res.json();
+          const room = rooms.find((r) => r.roomId === roomId);
+
+          if (room) {
+            document.getElementById("room-title").textContent = room.name.toUpperCase();
+            
+            // === HOST LOGIC ===
+            if (String(room.host._id) === String(user._id)) {
+                isHost = true;
+                console.log("YOU ARE THE HOST"); // Debug Log
+                document.getElementById('auth-modal').classList.add('hidden'); // Ensure modal is gone for host
+                setupHostMode();
+            } else {
+                setupAudienceMode();
+            }
+
+            // === MODE SELECTION ===
+            if (room.videoUrl === 'LOCAL_FILE_MODE') {
+                isLocalMode = true;
+                setupLocalPlayer();
+            } else {
+                isLocalMode = false;
+                setupYouTubePlayer(getYouTubeID(room.videoUrl));
+            }
+          }
+        } catch (e) { console.error(e); }
+      }
+
+      function setupHostMode() {
+          document.getElementById('role-badge').textContent = "HOST";
+          document.getElementById('role-badge').classList.add('text-yellow-500');
+          document.getElementById('gesture-cam').classList.remove('hidden');
+          document.getElementById('nav-cam-btn').classList.remove('hidden');
+          
+          localPlayer.controls = true;
+          
+          // Heartbeat Sync
+          setInterval(() => {
+              const currentTime = isLocalMode ? localPlayer.currentTime : (player && player.getCurrentTime ? player.getCurrentTime() : 0);
+              const isPaused = isLocalMode ? localPlayer.paused : (player && player.getPlayerState ? player.getPlayerState() !== 1 : true);
+              
+              if(!isPaused) {
+                  socket.emit('sync-action', { roomId, type: 'time-update', time: currentTime });
+              }
+          }, 1000);
+          
+          startMediaPipe(); 
+      }
+
+      function setupAudienceMode() {
+          isHost = false;
+          localPlayer.removeAttribute('controls');
+          localPlayer.style.pointerEvents = 'none'; 
+          document.getElementById('audience-shield').classList.remove('hidden');
+      }
+
+      // === 3. SYNC ENGINE ===
+      // Local Events
+      if(localPlayer) {
+          localPlayer.onplay = () => isHost && socket.emit('sync-action', { roomId, type: 'play', time: localPlayer.currentTime });
+          localPlayer.onpause = () => isHost && socket.emit('sync-action', { roomId, type: 'pause', time: localPlayer.currentTime });
+          localPlayer.onseeking = () => isHost && socket.emit('sync-action', { roomId, type: 'seek', time: localPlayer.currentTime });
+      }
+
+      // YouTube Events will be attached in setupYouTubePlayer
+
+      socket.on('sync-action', (data) => {
+          if(isHost) return; 
+          
+          if(isLocalMode) {
+              const v = localPlayer;
+              if (data.type === 'time-update' && Math.abs(v.currentTime - data.time) > 1.5) { v.currentTime = data.time; showSyncStatus("Syncing..."); }
+              else if (data.type === 'play') { v.currentTime = data.time; v.play(); }
+              else if (data.type === 'pause') { v.currentTime = data.time; v.pause(); }
+              else if (data.type === 'seek') { v.currentTime = data.time; }
+          } else if (player && player.seekTo) {
+               // YouTube Sync
+               if (data.type === 'time-update' && Math.abs(player.getCurrentTime() - data.time) > 1.5) { player.seekTo(data.time); showSyncStatus("Syncing..."); }
+               else if (data.type === 'play') { player.seekTo(data.time); player.playVideo(); }
+               else if (data.type === 'pause') { player.seekTo(data.time); player.pauseVideo(); }
+               else if (data.type === 'seek') { player.seekTo(data.time); }
+          }
+      });
+
+      function showSyncStatus(msg) {
+          const el = document.getElementById("sync-status");
+          el.textContent = msg; el.style.opacity = 1;
+          setTimeout(() => el.style.opacity = 0, 2000);
+      }
+
+      // === 4. DRAG CAM ===
+      const camBox = document.getElementById("gesture-cam");
+      const header = document.getElementById("cam-header");
+      let isDown = false, offset = [0,0];
+      header.addEventListener('mousedown', (e) => { isDown = true; camBox.style.bottom='auto'; camBox.style.right='auto'; offset=[camBox.offsetLeft-e.clientX, camBox.offsetTop-e.clientY]; header.style.cursor='grabbing'; }, true);
+      document.addEventListener('mouseup', () => { isDown = false; header.style.cursor='grab'; }, true);
+      document.addEventListener('mousemove', (e) => { if(isDown) { e.preventDefault(); camBox.style.left=(e.clientX+offset[0])+'px'; camBox.style.top=(e.clientY+offset[1])+'px'; } }, true);
+      function toggleCamVisibility() { camBox.classList.toggle('hidden'); }
+
+      // === 5. MEDIA & CHAT ===
+      function sendReaction(emoji) { socket.emit('send-reaction', { roomId, emoji }); showFloatingReaction(emoji); }
+      socket.on('receive-reaction', (emoji) => showFloatingReaction(emoji));
+      function showFloatingReaction(emoji) { const el = document.createElement('div'); el.classList.add('floater'); el.innerText = emoji; el.style.right = (50 + Math.random() * 100) + 'px'; document.getElementById('reaction-zone').appendChild(el); setTimeout(() => el.remove(), 2000); }
+
+      document.getElementById('chat-form').addEventListener('submit', (e) => { e.preventDefault(); const val = document.getElementById('chat-input').value; if(val) { socket.emit('send-message', { roomId, text: val, user: user.username }); addMessage(user.username, val, true); document.getElementById('chat-input').value=''; } });
+      socket.on('receive-message', (data) => addMessage(data.user, data.text, false));
+      function addMessage(name, text, isMe) { const box = document.getElementById('chat-messages'); box.insertAdjacentHTML('beforeend', `<div class="flex flex-col ${isMe?'items-end':'items-start'} mb-2"><span class="text-[10px] font-bold text-gray-400 uppercase">${isMe?'Me':name}</span><span class="${isMe?'bg-white text-black':'bg-white/10 text-gray-200'} px-3 py-1 rounded text-xs">${text}</span></div>`); box.scrollTop=box.scrollHeight; }
+
+      function setupLocalPlayer() { 
+          if(isHost) { 
+              document.getElementById('file-picker-overlay').classList.remove('hidden'); 
+              document.getElementById('local-file-input').addEventListener('change', (e) => { 
+                  if(e.target.files[0]) { 
+                      localPlayer.src = URL.createObjectURL(e.target.files[0]); 
+                      localPlayer.classList.remove('hidden'); 
+                      document.getElementById('file-picker-overlay').classList.add('hidden'); 
+                  } 
+              }); 
+          } else { 
+              localPlayer.classList.remove('hidden'); 
+          } 
+      }
+
+      function getYouTubeID(url) { if(!url) return null; const m = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/); return m && m[2].length === 11 ? m[2] : null; }
+      
+      function setupYouTubePlayer(id) { 
+          // Load YouTube IFrame API
+          const tag = document.createElement('script');
+          tag.src = "https://www.youtube.com/iframe_api";
+          const firstScriptTag = document.getElementsByTagName('script')[0];
+          firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+          window.onYouTubeIframeAPIReady = function() {
+              document.getElementById('player').classList.remove('hidden'); 
+              player = new YT.Player('player', {
+                  height: '100%',
+                  width: '100%',
+                  videoId: id,
+                  playerVars: { 
+                    'playsinline': 1, 
+                    'controls': isHost ? 1 : 0, // Hide controls for audience
+                    'disablekb': isHost ? 0 : 1
+                  },
+                  events: {
+                      'onStateChange': onPlayerStateChange
+                  }
+              });
+          };
+      }
+
+      let isRemoteUpdate = false;
+      function onPlayerStateChange(event) {
+          if (!isHost || isRemoteUpdate) { isRemoteUpdate = false; return; }
+          
+          if (event.data == YT.PlayerState.PLAYING) {
+              socket.emit('sync-action', { roomId, type: 'play', time: player.getCurrentTime() });
+          } else if (event.data == YT.PlayerState.PAUSED) {
+              socket.emit('sync-action', { roomId, type: 'pause', time: player.getCurrentTime() });
+          }
+      }
+
+      // === 6. AI GESTURE LOGIC (FIXED DIRECTION) ===
+      function startMediaPipe() { 
+          const aiDot = document.getElementById("ai-dot"); aiDot.classList.add("ai-active"); 
+          const videoElement = document.getElementById("webcam"); 
+          
+          hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` }); 
+          hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.85, minTrackingConfidence: 0.85, selfieMode: true }); 
+          hands.onResults(onResults); 
+          
+          camera = new Camera(videoElement, { 
+              onFrame: async () => { await hands.send({ image: videoElement }); }, 
+              width: 240, height: 180 
+          }); 
+          camera.start(); 
+      }
+
+      function onResults(results) { 
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) { 
+            const landmarks = results.multiHandLandmarks[0]; 
+            const now = Date.now();
+            
+            // 1.5 Second Cooldown
+            if(now - lastActionTime < 1500) return;
+
+            const gesture = detectGesture(landmarks);
+            
+            if(gesture !== "NONE") {
+                 executeCommand(gesture);
+                 lastActionTime = now;
+            }
+        } 
+      }
+
+      function detectGesture(lm) { 
+          const pinchDist = Math.sqrt(Math.pow(lm[8].x - lm[4].x, 2) + Math.pow(lm[8].y - lm[4].y, 2));
+          const isPinch = pinchDist < 0.05;
+
+          if (isPinch) {
+              // LOGIC SWAPPED AS REQUESTED:
+              // Left side of frame (x < 0.3) -> REWIND
+              // Right side of frame (x > 0.7) -> FORWARD
+              if (lm[8].x < 0.3) return "REWIND"; 
+              if (lm[8].x > 0.7) return "FORWARD"; 
+          }
+
+          const indexOpen = lm[8].y < lm[6].y; 
+          const middleOpen = lm[12].y < lm[10].y; 
+          const ringOpen = lm[16].y < lm[14].y; 
+          const pinkyOpen = lm[20].y < lm[18].y; 
+
+          if (indexOpen && middleOpen && !ringOpen && !pinkyOpen) return "PEACE"; 
+          if (indexOpen && middleOpen && ringOpen && pinkyOpen) return "PALM";   
+          
+          return "NONE"; 
+      }
+
+      function executeCommand(cmd) {
+          if(!isHost) return;
+          const toast = document.getElementById("gesture-toast");
+          let newTime;
+
+          if(cmd === "PALM") {
+              if(isLocalMode) localPlayer.pause(); else player.pauseVideo();
+              toast.textContent = "PAUSED ✋";
+              newTime = isLocalMode ? localPlayer.currentTime : player.getCurrentTime();
+              socket.emit('sync-action', { roomId, type: 'pause', time: newTime });
+          } 
+          else if (cmd === "PEACE") {
+              if(isLocalMode) localPlayer.play(); else player.playVideo();
+              toast.textContent = "PLAYING ✌️";
+              newTime = isLocalMode ? localPlayer.currentTime : player.getCurrentTime();
+              socket.emit('sync-action', { roomId, type: 'play', time: newTime });
+          }
+          else if (cmd === "FORWARD") {
+              // Forward Logic
+              if(isLocalMode) { localPlayer.currentTime += 10; newTime = localPlayer.currentTime; } 
+              else { newTime = player.getCurrentTime() + 10; player.seekTo(newTime); }
+              
+              toast.textContent = "+10s ⏩";
+              socket.emit('sync-action', { roomId, type: 'seek', time: newTime });
+          }
+          else if (cmd === "REWIND") {
+              // Rewind Logic
+              if(isLocalMode) { localPlayer.currentTime -= 10; newTime = localPlayer.currentTime; } 
+              else { newTime = player.getCurrentTime() - 10; player.seekTo(newTime); }
+              
+              toast.textContent = "-10s ⏪";
+              socket.emit('sync-action', { roomId, type: 'seek', time: newTime });
+          }
+
+          toast.style.opacity = 1;
+          setTimeout(() => toast.style.opacity = 0, 1000);
+      }
+
+      function copyLink() { navigator.clipboard.writeText(window.location.href); alert("Link Copied!"); }
+    </script>
+  </body>
+</html>

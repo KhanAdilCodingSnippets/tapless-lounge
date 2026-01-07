@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TAPLESS | Premiere Lounge</title>
+    <meta name="description" content="Join Tapless Lounge to connect in real-time rooms. Simple, fast, and secure." />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta property="og:title" content="Tapless Lounge" />
+<meta property="og:image" content="/preview.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="manifest" href="/site.webmanifest">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;600;900&display=swap" rel="stylesheet">
+    <style>
+        :root { --cinema-red: #e50914; --cinema-gold: #f5c518; --deep-dark: #050505; }
+        body { font-family: 'Montserrat', sans-serif; background-color: var(--deep-dark); color: white; background-image: radial-gradient(circle at 50% 0%, #1a0505 0%, #000000 70%); min-height: 100vh; }
+        h1, h2, h3, .poster-font { font-family: 'Bebas Neue', cursive; letter-spacing: 2px; }
+        .room-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255,255,255,0.05); background: rgba(20,20,20,0.6); }
+        .room-card:hover { transform: scale(1.03) translateY(-5px); border-color: var(--cinema-gold); box-shadow: 0 0 25px rgba(245, 197, 24, 0.2); }
+        .gold-text { color: var(--cinema-gold); text-shadow: 0 0 10px rgba(245, 197, 24, 0.3); }
+        .glow-header { text-shadow: 0 0 30px rgba(229, 9, 20, 0.4); }
+        .btn-gold { background: linear-gradient(45deg, #FFD700, #FDB931); color: black; font-family: 'Bebas Neue', cursive; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3); }
+        .btn-gold:hover { background: linear-gradient(45deg, #FDB931, #FFD700); box-shadow: 0 6px 20px rgba(255, 215, 0, 0.5); transform: translateY(-2px); }
+        .glass-nav { background: rgba(0,0,0,0.8); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .tab-active { color: var(--cinema-gold); border-bottom: 2px solid var(--cinema-gold); }
+        .tab-inactive { color: gray; border-bottom: 2px solid transparent; }
+    </style>
+</head>
+<body class="flex flex-col">
+
+    <nav class="h-24 flex items-center justify-between px-8 glass-nav sticky top-0 z-50">
+        <div class="flex items-center gap-2 group cursor-pointer">
+            <div class="w-10 h-10 bg-red-600 rounded flex items-center justify-center font-black text-xl shadow-[0_0_15px_rgba(229,9,20,0.6)]">T</div>
+            <h1 class="text-4xl italic text-white group-hover:text-red-500 transition duration-300">TAPLESS</h1>
+        </div>
+        <div class="flex items-center gap-8">
+            <a href="profile.html" class="group flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/5 hover:border-yellow-500/50 transition">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-400 to-yellow-600 flex items-center justify-center text-black font-bold text-xs">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+                </div>
+                <div class="hidden md:block text-right">
+                    <p id="username-display" class="text-xs font-bold text-white leading-none mb-1">VIP GUEST</p>
+                    <p class="text-[9px] text-yellow-500 tracking-widest uppercase">Member Access</p>
+                </div>
+            </a>
+            <button onclick="logout()" class="text-gray-500 hover:text-red-500 transition transform hover:scale-110">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            </button>
+        </div>
+    </nav>
+
+    <div class="flex-1 p-8 max-w-7xl mx-auto w-full relative z-10">
+        <div class="flex flex-col md:flex-row justify-between items-end mb-16 gap-6 border-b border-white/10 pb-8">
+            <div>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    <p class="text-red-500 text-xs font-bold tracking-[0.2em] uppercase">Live Box Office</p>
+                </div>
+                <h2 class="text-6xl md:text-7xl text-white glow-header leading-none">NOW <span class="gold-text italic">SHOWING</span></h2>
+            </div>
+            <button onclick="openModal()" class="btn-gold px-8 py-4 rounded text-xl shadow-lg flex items-center gap-3 transition">
+                <span class="text-2xl">+</span> CREATE PREMIERE
+            </button>
+        </div>
+        <div id="room-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+        <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 opacity-60">
+            <p class="poster-font text-3xl text-gray-500">The Theaters are Empty</p>
+        </div>
+    </div>
+
+    <div id="create-modal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-zinc-900 border border-yellow-500/20 p-1 rounded-2xl max-w-md w-full shadow-[0_0_50px_rgba(0,0,0,0.8)] relative">
+            <div class="bg-[#0a0a0a] p-8 rounded-xl relative overflow-hidden">
+                <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-500 hover:text-white transition">✕</button>
+                <h3 class="text-3xl mb-6 text-white"><span class="text-yellow-500">HOST</span> A SCREENING</h3>
+                
+                <div class="flex border-b border-white/10 mb-6 gap-4">
+                    <button onclick="switchTab('yt')" id="tab-yt" class="flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-active">YouTube</button>
+                    <button onclick="switchTab('local')" id="tab-local" class="flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-inactive">Local File (P2P)</button>
+                </div>
+                
+                <form id="create-room-form" class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-yellow-500 uppercase tracking-wider mb-2 block">Room Title</label>
+                        <input type="text" id="room-name" class="w-full bg-white/5 border border-white/10 rounded px-4 py-3 text-white focus:border-yellow-500 focus:bg-white/10 outline-none transition font-medium" placeholder="e.g. Saturday Night Blockbuster" required>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block flex justify-between">
+                            Room Password <span>(Optional)</span>
+                        </label>
+                        <input type="text" id="room-password" class="w-full bg-white/5 border border-white/10 rounded px-4 py-3 text-white focus:border-red-500 focus:bg-white/10 outline-none transition font-medium tracking-widest" placeholder="Set password (visible to you)">
+                    </div>
+
+                    <div id="input-yt">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 block">YouTube URL</label>
+                        <input type="url" id="room-url" class="w-full bg-white/5 border border-white/10 rounded px-4 py-3 text-white focus:border-yellow-500 focus:bg-white/10 outline-none transition font-medium" placeholder="Paste YouTube link here...">
+                    </div>
+
+                    <div id="input-local" class="hidden">
+                         <div class="border border-dashed border-yellow-500/30 rounded bg-yellow-500/5 p-4 text-center">
+                            <p class="text-sm font-bold text-white mb-1">Direct Stream Ready</p>
+                            <p class="text-[10px] text-gray-400">You will select the file inside the room.</p>
+                         </div>
+                    </div>
+
+                    <button type="submit" class="w-full btn-gold py-4 rounded font-bold hover:brightness-110 transition mt-4">OPEN THEATER</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+   <script>
+    const API_URL = '/api';
+    const user = JSON.parse(localStorage.getItem('user'));
+    const token = localStorage.getItem('token');
+    
+    // Auth Check
+    if (!user || !token) window.location.href = 'index.html';
+    else document.getElementById('username-display').textContent = user.username.toUpperCase();
+
+    // Tab Switching Logic
+    let mode = 'yt';
+    function switchTab(m) {
+        mode = m;
+        const ytInput = document.getElementById('input-yt');
+        const localInput = document.getElementById('input-local');
+        const tabYt = document.getElementById('tab-yt');
+        const tabLocal = document.getElementById('tab-local');
+
+        if(mode === 'yt') { 
+            ytInput.classList.remove('hidden'); 
+            localInput.classList.add('hidden'); 
+            tabYt.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-active"; 
+            tabLocal.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-inactive"; 
+        } else { 
+            ytInput.classList.add('hidden'); 
+            localInput.classList.remove('hidden'); 
+            tabLocal.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-active"; 
+            tabYt.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-inactive"; 
+        }
+    }
+
+    // Create Room
+    document.getElementById('create-room-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('button'); 
+        btn.textContent = "CREATING..."; 
+        btn.disabled = true;
+
+        const name = document.getElementById('room-name').value;
+        const password = document.getElementById('room-password').value; 
+        const videoUrl = mode === 'yt' ? document.getElementById('room-url').value : 'LOCAL_FILE_MODE';
+
+        try {
+            const res = await fetch(`${API_URL}/rooms/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, videoUrl, password, hostId: user._id })
+            });
+            const data = await res.json();
+            if(data.roomId) window.location.href = `room.html?id=${data.roomId}`;
+            else { alert("Error creating room"); btn.disabled = false; btn.textContent = "OPEN THEATER"; }
+        } catch (err) { console.error(err); btn.disabled = false; btn.textContent = "OPEN THEATER"; }
+    });
+
+    // Fetch & Display Rooms
+    async function fetchRooms() {
+        try {
+            const res = await fetch(`${API_URL}/rooms/list`);
+            const rooms = await res.json();
+            const grid = document.getElementById('room-grid');
+            grid.innerHTML = '';
+
+            if(rooms.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+            } else {
+                document.getElementById('empty-state').classList.add('hidden');
+                rooms.forEach(room => {
+                    const isHost = room.host._id === user._id;
+                    const isLocked = room.password && room.password.length > 0; 
+                    
+                    let thumbnail = room.videoUrl !== 'LOCAL_FILE_MODE' 
+                        ? `https://img.youtube.com/vi/${getYouTubeID(room.videoUrl)}/mqdefault.jpg` 
+                        : 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=600&auto=format&fit=crop';
+                    
+                    grid.innerHTML += `
+                        <div class="room-card rounded-xl overflow-hidden group relative flex flex-col h-full">
+                            <div class="h-48 bg-black relative overflow-hidden">
+                                <img src="${thumbnail}" class="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition duration-700 transform group-hover:scale-110">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+                                <span class="absolute top-3 left-3 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm shadow-lg flex items-center gap-1"><span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE</span>
+                                ${isLocked ? '<span class="absolute top-3 right-3 text-yellow-500 text-xs font-bold bg-black/50 px-2 py-1 rounded">🔒 LOCKED</span>' : ''}
+                            </div>
+                            <div class="p-6 flex-1 flex flex-col justify-between border-t border-white/5">
+                                <div>
+                                    <h4 class="text-2xl font-bold text-white mb-1 truncate poster-font tracking-wide group-hover:text-yellow-400 transition">${room.name}</h4>
+                                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-4">Host: <span class="text-gray-200 font-bold">${room.host.username}</span></p>
+                                </div>
+                                <div class="flex gap-3 mt-4">
+                                    <button onclick="goToRoom('${room.roomId}')" class="flex-1 bg-white/5 hover:bg-white text-white hover:text-black font-bold py-3 rounded text-xs tracking-widest uppercase transition border border-white/10 hover:border-white">
+                                        ${isLocked ? 'Unlock & Enter' : 'Enter Theater'}
+                                    </button>
+                                    ${isHost ? `<button onclick="deleteRoom('${room._id}')" class="bg-red-500/10 hover:bg-red-600 text-red-500 hover:text-white px-4 rounded transition border border-red-500/20">🗑</button>` : ''}
+                                </div>
+                            </div>
+                        </div>`;
+                });
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    function getYouTubeID(url) { 
+        if(!url) return null; 
+        const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/); 
+        return match && match[2].length === 11 ? match[2] : null; 
+    }
+    
+    function goToRoom(roomId) {
+        window.location.href = `room.html?id=${roomId}`;
+    }
+
+    async function deleteRoom(dbId) {
+        if(!confirm("Close this theater room?")) return;
+        await fetch(`${API_URL}/rooms/delete`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ roomId: dbId, hostId: user._id }) 
+        });
+        fetchRooms();
+    }
+
+    function logout() { localStorage.clear(); window.location.href = 'index.html'; }
+    function openModal() { document.getElementById('create-modal').classList.remove('hidden'); }
+    function closeModal() { document.getElementById('create-modal').classList.add('hidden'); }
+
+    // Init
+    fetchRooms(); 
+    setInterval(fetchRooms, 5000);
+</script>
+</body>
+</html>

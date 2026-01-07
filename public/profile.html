@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TAPLESS | Account Hub</title>
+    <meta name="description" content="Join Tapless Lounge to connect in real-time rooms. Simple, fast, and secure." />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta property="og:title" content="Tapless Lounge" />
+<meta property="og:image" content="/preview.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Montserrat', sans-serif; background: #050505; color: white; }
+        .glass { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 12px; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+    </style>
+</head>
+<body class="p-8 max-w-4xl mx-auto">
+
+    <div class="flex justify-between items-center mb-10">
+        <div>
+            <h1 class="text-3xl font-black">ACCOUNT HUB</h1>
+            <p class="text-gray-500 text-sm" id="role-tag">USER LEVEL</p>
+        </div>
+        <a href="dashboard.html" class="text-sm font-bold text-gray-400 hover:text-white">← BACK TO LOBBY</a>
+    </div>
+
+    <div id="admin-panel" class="hidden mb-12 border border-yellow-500/30 bg-yellow-900/10 p-6 rounded-xl">
+        <h2 class="text-xl font-bold text-yellow-500 mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            ADMIN GOD MODE
+        </h2>
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="glass p-4">
+                <p class="text-xs text-gray-400">TOTAL USERS</p>
+                <p class="text-3xl font-black" id="stat-users">-</p>
+            </div>
+            <div class="glass p-4">
+                <p class="text-xs text-gray-400">ACTIVE ROOMS</p>
+                <p class="text-3xl font-black" id="stat-rooms">-</p>
+            </div>
+        </div>
+        
+        <h3 class="text-sm font-bold text-gray-400 mb-2">USER DATABASE</h3>
+        <div id="user-list" class="space-y-2 max-h-40 overflow-y-auto">
+            </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        <div class="glass p-6">
+            <h3 class="text-lg font-bold mb-4">Security</h3>
+            
+            <form id="pass-form" class="space-y-4 mb-8">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">New Password</label>
+                    <input type="password" id="new-pass" class="w-full bg-black/50 border border-white/10 rounded p-3 text-sm focus:border-blue-500 outline-none" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 py-2 rounded text-sm font-bold">Update Password</button>
+            </form>
+
+            <hr class="border-white/10 mb-8">
+
+            <h3 class="text-lg font-bold text-red-500 mb-2">Danger Zone</h3>
+            <p class="text-xs text-gray-500 mb-4">Once you delete your account, there is no going back.</p>
+            <button onclick="deleteMyAccount()" class="w-full btn-danger py-3 rounded text-sm font-bold">DELETE ACCOUNT</button>
+        </div>
+
+        <div class="glass p-6">
+            <h3 class="text-lg font-bold mb-4">Watch History</h3>
+            <div id="history-list" class="space-y-3 text-sm text-gray-400">
+                <p class="italic">No history yet.</p>
+            </div>
+        </div>
+
+    </div>
+
+   <script>
+        const API = '/api';
+        
+        // 1. Initial Load (Fast, but might be stale)
+        let user = JSON.parse(localStorage.getItem('user'));
+        if (!user) window.location.href = 'index.html';
+        
+        // Render immediately with what we have
+        renderUI(user);
+
+        // 2. The "Self-Correction" (Fetch fresh data from DB)
+        refreshUserData();
+
+        async function refreshUserData() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`${API}/auth/me`, {
+                    headers: { 'x-auth-token': token }
+                });
+                
+                if (res.ok) {
+                    const freshUser = await res.json();
+                    
+                    // Detect if role changed
+                    if (freshUser.role !== user.role) {
+                        console.log("⚡ Role Update Detected! Refreshing UI...");
+                        // Update Local Storage
+                        localStorage.setItem('user', JSON.stringify(freshUser));
+                        user = freshUser; // Update variable
+                        renderUI(user);   // Re-render
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to refresh session", err);
+            }
+        }
+
+        function renderUI(currentUser) {
+            document.getElementById('role-tag').textContent = `LOGGED IN AS: ${currentUser.username.toUpperCase()} (${currentUser.role.toUpperCase()})`;
+            
+            // Show/Hide Admin Panel based on LIVE data
+            if (currentUser.role === 'admin') {
+                document.getElementById('admin-panel').classList.remove('hidden');
+                loadAdminPanel(currentUser);
+            } else {
+                document.getElementById('admin-panel').classList.add('hidden');
+            }
+
+            fetchHistory(currentUser);
+        }
+
+        // --- ADMIN LOGIC ---
+        async function loadAdminPanel(currentUser) {
+            const res = await fetch(`${API}/admin/stats`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentUser._id })
+            });
+            const data = await res.json();
+
+            document.getElementById('stat-users').textContent = data.userCount;
+            document.getElementById('stat-rooms').textContent = data.roomCount;
+
+            const list = document.getElementById('user-list');
+            list.innerHTML = '';
+            data.users.forEach(u => {
+                list.innerHTML += `
+                    <div class="flex justify-between items-center bg-black/40 p-2 rounded">
+                        <span class="text-sm ${u.role === 'admin' ? 'text-yellow-500 font-bold' : 'text-gray-300'}">
+                            ${u.username} (${u.role})
+                        </span>
+                        ${u.role !== 'admin' ? `<button onclick="adminDeleteUser('${u._id}')" class="text-xs text-red-500 hover:text-red-400 font-bold">TERMINATE</button>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        async function adminDeleteUser(targetId) {
+            if(!confirm("ADMIN ACTION: Terminate this user?")) return;
+            await fetch(`${API}/admin/delete-user`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user._id, targetId })
+            });
+            refreshUserData(); // Refresh list
+        }
+
+        // --- USER LOGIC ---
+        async function fetchHistory(currentUser) {
+            const res = await fetch(`${API}/admin/history/${currentUser._id}`);
+            const history = await res.json();
+            const list = document.getElementById('history-list');
+            
+            if (history.length > 0) {
+                list.innerHTML = '';
+                history.reverse().forEach(h => {
+                    list.innerHTML += `
+                        <div class="border-b border-white/10 pb-2 mb-2">
+                            <p class="text-white font-bold">${h.roomName || 'Watched Video'}</p>
+                            <p class="text-[10px] text-gray-500">${new Date(h.date).toLocaleDateString()} • ${new Date(h.date).toLocaleTimeString()}</p>
+                        </div>
+                    `;
+                });
+            }
+        }
+        
+        // ... (Keep Change Password and Delete Self functions same as before)
+    </script>
+</body>
+</html>
