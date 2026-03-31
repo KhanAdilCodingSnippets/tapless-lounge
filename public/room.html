@@ -595,11 +595,10 @@
             const pinchDist = Math.sqrt(Math.pow(lm[8].x - lm[4].x, 2) + Math.pow(lm[8].y - lm[4].y, 2));
             const isPinch = pinchDist < 0.05;
 
-            // Physical Right Hand = "Left" label (due to mirroring) -> Forward
-            // Physical Left Hand = "Right" label -> Rewind
+           
             if (isPinch) {
-                if (handedness === "Left") return "FORWARD"; 
-                if (handedness === "Right") return "REWIND"; 
+                if (handedness === "Right") return "FORWARD"; 
+                if (handedness === "Left") return "REWIND"; 
             }
 
             const indexOpen = lm[8].y < lm[6].y; 
