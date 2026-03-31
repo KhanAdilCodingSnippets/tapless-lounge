@@ -98,7 +98,7 @@
             <div class="screen-container w-full max-w-6xl aspect-video bg-black rounded-lg overflow-hidden relative group">
                 <div id="audience-shield" class="shield hidden"></div>
                 <div id="player" class="w-full h-full hidden"></div> 
-                <video id="local-player" class="w-full h-full hidden bg-black object-contain" playsinline></video> 
+                <video id="local-player" class="w-full h-full hidden bg-black object-contain" playsinline autoplay></video> 
                 <div id="gesture-toast" class="gesture-toast">PAUSED</div>
             </div>
 
@@ -141,7 +141,7 @@
 
             <div id="tab-content-peers" class="flex-1 flex flex-col overflow-hidden hidden">
                 <div id="peer-list" class="flex-1 overflow-y-auto p-4 space-y-2">
-                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -185,7 +185,7 @@
         // P2P & Roster Tracking
         const activePeers = new Set(); 
         const peerConnections = {}; 
-        const roomRoster = {}; // Store identities: { socketId: username }
+        const roomRoster = {}; 
         let localStream = null;
 
         if (!user || !roomId || !token) window.location.href = "dashboard.html";
@@ -204,8 +204,6 @@
         socket.on('auth-success', () => {
             document.getElementById('auth-modal').classList.add('hidden');
             initRoomDetails();
-            
-            // Announce presence for the Roster
             socket.emit('send-message', { roomId, text: 'entered the theater.', user: user.username, isSystem: true, type: 'announce' });
         });
 
@@ -214,7 +212,6 @@
             document.getElementById('auth-error').classList.remove('hidden');
         });
 
-        // Kicked Listener
         socket.on('you-are-kicked', () => {
             alert("You have been removed from the theater by the Host.");
             window.location.href = 'dashboard.html';
@@ -281,7 +278,6 @@
             document.getElementById('audience-shield').classList.remove('hidden');
         }
 
-        // Sidebar Tab Logic
         function switchSidebarTab(tab) {
             const chatBtn = document.getElementById('tab-chat');
             const peersBtn = document.getElementById('tab-peers');
@@ -301,7 +297,6 @@
             }
         }
 
-        // Roster Update Logic
         function updateRosterUI() {
             const list = document.getElementById('peer-list');
             list.innerHTML = `
@@ -338,12 +333,8 @@
         let isDragging = false, offsetX = 0, offsetY = 0;
 
         header.addEventListener('mousedown', (e) => {
-            // Ignore click if they hit the toggle or close button
             if(e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-            
             isDragging = true;
-            
-            // Get exact current position before stripping anchors
             const rect = camBox.getBoundingClientRect();
             camBox.style.bottom = 'auto';
             camBox.style.right = 'auto';
@@ -373,13 +364,12 @@
         function toggleCamVisibility() { camBox.classList.toggle('hidden'); }
 
         // ==========================================
-        // 4. WEBRTC P2P ENGINE (HARDENED)
+        // 4. WEBRTC P2P ENGINE (PROMISE FIX)
         // ==========================================
         const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
         socket.on('user-joined', (socketId) => {
             activePeers.add(socketId);
-            // Wait 1 second for the new peer to initialize before calling
             if (isHost && localStream) {
                 setTimeout(() => initiateCall(socketId), 1000);
             }
@@ -387,7 +377,7 @@
 
         socket.on('user-left', (socketId) => {
             activePeers.delete(socketId);
-            delete roomRoster[socketId]; // Remove from roster
+            delete roomRoster[socketId]; 
             updateRosterUI();
             
             if (peerConnections[socketId]) {
@@ -412,13 +402,17 @@
                     localPlayer.srcObject = e.streams[0];
                     localPlayer.classList.remove('hidden');
 
-                    // CRITICAL: Mute for audience to bypass Browser Autoplay blocks
+                    // Mute bypasses initial autoplay restrictions
                     localPlayer.muted = true;
 
-                    localPlayer.play().catch(err => {
-                        console.warn("Autoplay blocked. User must click page to hear audio.");
-                        showSyncStatus("Click anywhere to join audio");
-                    });
+                    // Safely handle the play promise to eliminate AbortErrors
+                    const playPromise = localPlayer.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(err => {
+                            console.warn("Autoplay required user interaction:", err);
+                            showSyncStatus("Click anywhere to unlock audio");
+                        });
+                    }
 
                     document.getElementById('audience-shield').classList.add('hidden');
                 };
@@ -456,15 +450,13 @@
                         localPlayer.classList.remove('hidden');
                         document.getElementById('file-picker-overlay').classList.add('hidden');
 
-                        // FIX: Use addEventListener so it doesn't get overwritten
                         localPlayer.addEventListener('play', () => {
                             if (!localStream) {
-                                // Capture stream AFTER play starts to ensure tracks are active
                                 localStream = localPlayer.captureStream ? localPlayer.captureStream() : localPlayer.mozCaptureStream();
                                 console.log("🎬 Local Stream Captured:", localStream.getTracks());
                                 activePeers.forEach(peerId => initiateCall(peerId));
                             }
-                        }, { once: true }); // We only need to capture the stream on the first play
+                        }, { once: true }); 
                     }
                 });
             } else {
@@ -483,7 +475,6 @@
         }
 
         if(localPlayer) {
-            // FIX: Use addEventListener to prevent overwriting the stream capture
             localPlayer.addEventListener('play', () => {
                 if (isHost) socket.emit('sync-action', { roomId, type: 'play', time: localPlayer.currentTime });
             });
@@ -497,13 +488,15 @@
 
         socket.on('sync-action', (data) => {
             if(isHost) return; 
+
+            // THE MAGIC FIX: WebRTC Live Feeds perfectly mirror the Host natively. 
+            // We MUST ignore socket sync actions if we are watching a live feed.
+            // Seeking a live feed breaks the stream and causes the AbortError!
             if(isLocalMode) {
-                const v = localPlayer;
-                if (data.type === 'time-update' && Math.abs(v.currentTime - data.time) > 1.5) { v.currentTime = data.time; showSyncStatus("Syncing..."); }
-                else if (data.type === 'play') { v.currentTime = data.time; v.play(); }
-                else if (data.type === 'pause') { v.currentTime = data.time; v.pause(); }
-                else if (data.type === 'seek') { v.currentTime = data.time; }
-            } else if (player && player.seekTo) {
+                return; 
+            } 
+            // YouTube Mode logic remains unchanged
+            else if (player && player.seekTo) {
                 if (data.type === 'time-update' && Math.abs(player.getCurrentTime() - data.time) > 1.5) { player.seekTo(data.time); showSyncStatus("Syncing..."); }
                 else if (data.type === 'play') { player.seekTo(data.time); player.playVideo(); }
                 else if (data.type === 'pause') { player.seekTo(data.time); player.pauseVideo(); }
@@ -552,14 +545,11 @@
         });
 
         socket.on('receive-message', (data) => {
-            // Handshake logic: if someone announces they joined, add them and reply so they know you exist
             if (data.type === 'announce') {
                 roomRoster[data.senderId] = data.user;
                 updateRosterUI();
-                // Reply back silently
                 socket.emit('send-message', { roomId, text: '', user: user.username, type: 'presence-reply', targetId: data.senderId });
             } else if (data.type === 'presence-reply') {
-                // Someone is telling me they are already here
                 roomRoster[data.senderId] = data.user;
                 updateRosterUI();
             } else {
@@ -568,7 +558,7 @@
         });
         
         function addMessage(name, text, isSystem = false) { 
-            if(!text) return; // Ignore silent handshakes
+            if(!text) return; 
             const box = document.getElementById('chat-messages'); 
             const isMe = name === user.username;
             if (isSystem) { box.insertAdjacentHTML('beforeend', `<div class="text-center text-[10px] text-gray-500 uppercase my-2 tracking-widest">${name} ${text}</div>`); } 
@@ -611,15 +601,14 @@
         }
 
         function onResults(results) { 
-            if (!isAiActive) return; // Master Toggle
+            if (!isAiActive) return; 
 
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) { 
                 const landmarks = results.multiHandLandmarks[0]; 
-                // Because of selfieMode: true, physical hands are mirrored in the output label
                 const handednessLabel = results.multiHandedness[0].label; 
                 
                 const now = Date.now();
-                if(now - lastActionTime < 1500) return; // 1.5s Cooldown prevents clash
+                if(now - lastActionTime < 1500) return; 
 
                 const gesture = detectGesture(landmarks, handednessLabel);
                 if(gesture !== "NONE") {
@@ -633,7 +622,6 @@
             const pinchDist = Math.sqrt(Math.pow(lm[8].x - lm[4].x, 2) + Math.pow(lm[8].y - lm[4].y, 2));
             const isPinch = pinchDist < 0.05;
 
-           
             if (isPinch) {
                 if (handedness === "Right") return "FORWARD"; 
                 if (handedness === "Left") return "REWIND"; 
