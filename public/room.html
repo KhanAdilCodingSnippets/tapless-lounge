@@ -72,13 +72,15 @@
         <p class="text-gray-400 text-sm mb-10 text-center max-w-md font-light">Select source.</p>
         <div class="grid grid-cols-2 gap-6 w-full max-w-2xl">
             <label class="cursor-pointer group relative">
-                <input type="file" id="local-file-input" class="absolute opacity-0 w-full h-full cursor-pointer" accept="video/*">
+                <input type="file" id="local-file-input" class="absolute opacity-0 w-full h-full cursor-pointer" accept="video/mp4,video/webm">
                 <div class="h-40 border border-white/10 rounded-xl bg-white/5 hover:bg-white/10 transition flex flex-col items-center justify-center gap-3">
                     <span class="text-xs font-bold text-gray-300 group-hover:text-white uppercase">📁 Select File</span>
+                    <span class="text-[9px] text-gray-500 uppercase tracking-widest">MP4 / WebM Only (No MKV)</span>
                 </div>
             </label>
             <button onclick="startScreenShare()" class="h-40 border border-white/10 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 transition flex flex-col items-center justify-center gap-3">
                 <span class="text-xs font-bold text-blue-300 uppercase">📺 Screen Share</span>
+                <span class="text-[9px] text-blue-500/50 uppercase tracking-widest">Share Desktop</span>
             </button>
         </div>
     </div>
@@ -364,7 +366,7 @@
         function toggleCamVisibility() { camBox.classList.toggle('hidden'); }
 
         // ==========================================
-        // 4. WEBRTC P2P ENGINE (PROMISE FIX)
+        // 4. WEBRTC P2P ENGINE (PROMISE & AUDIO FIX)
         // ==========================================
         const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
@@ -405,12 +407,27 @@
                     // Mute bypasses initial autoplay restrictions
                     localPlayer.muted = true;
 
-                    // Safely handle the play promise to eliminate AbortErrors
+                    // --- THE AUDIO UNMUTE FIX ---
+                    // This function turns the sound on the moment they click the screen
+                    const enableAudio = () => {
+                        localPlayer.muted = false;
+                        localPlayer.play(); // Forces play just in case it was totally blocked
+                        showSyncStatus("Audio Enabled 🔊");
+                        document.removeEventListener('click', enableAudio); // Remove listener so it only triggers once
+                    };
+
+                    // Safely handle the play promise
                     const playPromise = localPlayer.play();
                     if (playPromise !== undefined) {
-                        playPromise.catch(err => {
-                            console.warn("Autoplay required user interaction:", err);
-                            showSyncStatus("Click anywhere to unlock audio");
+                        playPromise.then(() => {
+                            // Video autoplayed successfully, but is muted. Tell them to click!
+                            showSyncStatus("Stream Live - Click anywhere for audio");
+                            document.addEventListener('click', enableAudio);
+                        }).catch(err => {
+                            // Video was completely blocked. Tell them to click!
+                            console.warn("Autoplay blocked. User must click page.");
+                            showSyncStatus("Click anywhere to start stream");
+                            document.addEventListener('click', enableAudio);
                         });
                     }
 
