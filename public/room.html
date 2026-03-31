@@ -456,14 +456,15 @@
                         localPlayer.classList.remove('hidden');
                         document.getElementById('file-picker-overlay').classList.add('hidden');
 
-                        localPlayer.onplay = () => {
+                        // FIX: Use addEventListener so it doesn't get overwritten
+                        localPlayer.addEventListener('play', () => {
                             if (!localStream) {
                                 // Capture stream AFTER play starts to ensure tracks are active
                                 localStream = localPlayer.captureStream ? localPlayer.captureStream() : localPlayer.mozCaptureStream();
                                 console.log("🎬 Local Stream Captured:", localStream.getTracks());
                                 activePeers.forEach(peerId => initiateCall(peerId));
                             }
-                        };
+                        }, { once: true }); // We only need to capture the stream on the first play
                     }
                 });
             } else {
@@ -482,9 +483,16 @@
         }
 
         if(localPlayer) {
-            localPlayer.onplay = () => isHost && socket.emit('sync-action', { roomId, type: 'play', time: localPlayer.currentTime });
-            localPlayer.onpause = () => isHost && socket.emit('sync-action', { roomId, type: 'pause', time: localPlayer.currentTime });
-            localPlayer.onseeking = () => isHost && socket.emit('sync-action', { roomId, type: 'seek', time: localPlayer.currentTime });
+            // FIX: Use addEventListener to prevent overwriting the stream capture
+            localPlayer.addEventListener('play', () => {
+                if (isHost) socket.emit('sync-action', { roomId, type: 'play', time: localPlayer.currentTime });
+            });
+            localPlayer.addEventListener('pause', () => {
+                if (isHost) socket.emit('sync-action', { roomId, type: 'pause', time: localPlayer.currentTime });
+            });
+            localPlayer.addEventListener('seeking', () => {
+                if (isHost) socket.emit('sync-action', { roomId, type: 'seek', time: localPlayer.currentTime });
+            });
         }
 
         socket.on('sync-action', (data) => {
