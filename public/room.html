@@ -373,13 +373,16 @@
         function toggleCamVisibility() { camBox.classList.toggle('hidden'); }
 
         // ==========================================
-        // 4. WEBRTC P2P ENGINE (Unchanged)
+        // 4. WEBRTC P2P ENGINE (HARDENED)
         // ==========================================
         const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
         socket.on('user-joined', (socketId) => {
             activePeers.add(socketId);
-            if (isHost && localStream) initiateCall(socketId);
+            // Wait 1 second for the new peer to initialize before calling
+            if (isHost && localStream) {
+                setTimeout(() => initiateCall(socketId), 1000);
+            }
         });
 
         socket.on('user-left', (socketId) => {
@@ -396,9 +399,30 @@
         function createPeerConnection(targetId) {
             const pc = new RTCPeerConnection(rtcConfig);
             peerConnections[targetId] = pc;
-            pc.onicecandidate = (e) => { if (e.candidate) socket.emit('signal-ice', { target: targetId, candidate: e.candidate }); };
-            if (isHost && localStream) { localStream.getTracks().forEach(track => pc.addTrack(track, localStream)); } 
-            else { pc.ontrack = (e) => { localPlayer.srcObject = e.streams[0]; localPlayer.classList.remove('hidden'); document.getElementById('audience-shield').classList.add('hidden'); }; }
+
+            pc.onicecandidate = (e) => {
+                if (e.candidate) socket.emit('signal-ice', { target: targetId, candidate: e.candidate });
+            };
+
+            if (isHost && localStream) {
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            } else {
+                pc.ontrack = (e) => {
+                    console.log("💎 Incoming Stream Detected");
+                    localPlayer.srcObject = e.streams[0];
+                    localPlayer.classList.remove('hidden');
+
+                    // CRITICAL: Mute for audience to bypass Browser Autoplay blocks
+                    localPlayer.muted = true;
+
+                    localPlayer.play().catch(err => {
+                        console.warn("Autoplay blocked. User must click page to hear audio.");
+                        showSyncStatus("Click anywhere to join audio");
+                    });
+
+                    document.getElementById('audience-shield').classList.add('hidden');
+                };
+            }
             return pc;
         }
 
@@ -420,25 +444,31 @@
         socket.on('signal-ice', async (data) => { const pc = peerConnections[data.sender]; if (pc && data.candidate) await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); });
 
         // ==========================================
-        // 5. LOCAL MEDIA & YOUTUBE API (Unchanged)
+        // 5. LOCAL MEDIA & YOUTUBE API
         // ==========================================
-        function setupLocalPlayer() { 
-            if(isHost) { 
-                document.getElementById('file-picker-overlay').classList.remove('hidden'); 
-                document.getElementById('local-file-input').addEventListener('change', (e) => { 
-                    if(e.target.files[0]) { 
-                        localPlayer.src = URL.createObjectURL(e.target.files[0]); 
-                        localPlayer.classList.remove('hidden'); 
-                        document.getElementById('file-picker-overlay').classList.add('hidden'); 
-                        localPlayer.oncanplay = () => {
+        function setupLocalPlayer() {
+            if(isHost) {
+                document.getElementById('file-picker-overlay').classList.remove('hidden');
+                document.getElementById('local-file-input').addEventListener('change', (e) => {
+                    if(e.target.files[0]) {
+                        const fileURL = URL.createObjectURL(e.target.files[0]);
+                        localPlayer.src = fileURL;
+                        localPlayer.classList.remove('hidden');
+                        document.getElementById('file-picker-overlay').classList.add('hidden');
+
+                        localPlayer.onplay = () => {
                             if (!localStream) {
+                                // Capture stream AFTER play starts to ensure tracks are active
                                 localStream = localPlayer.captureStream ? localPlayer.captureStream() : localPlayer.mozCaptureStream();
+                                console.log("🎬 Local Stream Captured:", localStream.getTracks());
                                 activePeers.forEach(peerId => initiateCall(peerId));
                             }
                         };
-                    } 
-                }); 
-            } else { localPlayer.classList.remove('hidden'); } 
+                    }
+                });
+            } else {
+                localPlayer.classList.remove('hidden');
+            }
         }
 
         async function startScreenShare() {
