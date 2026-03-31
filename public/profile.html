@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <title>TAPLESS | Account Hub</title>
     <meta name="description" content="Join Tapless Lounge to connect in real-time rooms. Simple, fast, and secure." />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta property="og:title" content="Tapless Lounge" />
-<meta property="og:image" content="/preview.png" />
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="manifest" href="/site.webmanifest">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta property="og:title" content="Tapless Lounge" />
+    <meta property="og:image" content="/preview.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500;700;900&display=swap" rel="stylesheet">
     <style>
@@ -47,8 +47,7 @@
         </div>
         
         <h3 class="text-sm font-bold text-gray-400 mb-2">USER DATABASE</h3>
-        <div id="user-list" class="space-y-2 max-h-40 overflow-y-auto">
-            </div>
+        <div id="user-list" class="space-y-2 max-h-40 overflow-y-auto"></div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -74,7 +73,7 @@
         <div class="glass p-6">
             <h3 class="text-lg font-bold mb-4">Watch History</h3>
             <div id="history-list" class="space-y-3 text-sm text-gray-400">
-                <p class="italic">No history yet.</p>
+                <p class="italic">Loading history...</p>
             </div>
         </div>
 
@@ -82,19 +81,25 @@
 
    <script>
         const API = '/api';
-        
-        // 1. Initial Load (Fast, but might be stale)
+        const token = localStorage.getItem('token');
         let user = JSON.parse(localStorage.getItem('user'));
-        if (!user) window.location.href = 'index.html';
-        
-        // Render immediately with what we have
-        renderUI(user);
 
-        // 2. The "Self-Correction" (Fetch fresh data from DB)
-        refreshUserData();
+        if (!token || !user) {
+            window.location.href = 'index.html';
+        }
 
+        /**
+         * Initialize application state
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            renderUI(user);
+            refreshUserData();
+        });
+
+        /**
+         * Re-validate session with the server to ensure role accuracy
+         */
         async function refreshUserData() {
-            const token = localStorage.getItem('token');
             try {
                 const res = await fetch(`${API}/auth/me`, {
                     headers: { 'x-auth-token': token }
@@ -102,91 +107,194 @@
                 
                 if (res.ok) {
                     const freshUser = await res.json();
-                    
-                    // Detect if role changed
                     if (freshUser.role !== user.role) {
-                        console.log("⚡ Role Update Detected! Refreshing UI...");
-                        // Update Local Storage
                         localStorage.setItem('user', JSON.stringify(freshUser));
-                        user = freshUser; // Update variable
-                        renderUI(user);   // Re-render
+                        user = freshUser;
+                        renderUI(user);
                     }
+                } else {
+                    // Token expired or invalid
+                    localStorage.clear();
+                    window.location.href = 'index.html';
                 }
             } catch (err) {
-                console.error("Failed to refresh session", err);
+                console.error("Session verification failed", err);
             }
         }
 
+        /**
+         * Update DOM elements based on user permissions
+         */
         function renderUI(currentUser) {
             document.getElementById('role-tag').textContent = `LOGGED IN AS: ${currentUser.username.toUpperCase()} (${currentUser.role.toUpperCase()})`;
             
-            // Show/Hide Admin Panel based on LIVE data
             if (currentUser.role === 'admin') {
                 document.getElementById('admin-panel').classList.remove('hidden');
-                loadAdminPanel(currentUser);
+                loadAdminPanel();
             } else {
                 document.getElementById('admin-panel').classList.add('hidden');
             }
 
-            fetchHistory(currentUser);
+            fetchHistory();
         }
 
-        // --- ADMIN LOGIC ---
-        async function loadAdminPanel(currentUser) {
-            const res = await fetch(`${API}/admin/stats`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: currentUser._id })
-            });
-            const data = await res.json();
+        // ==========================================
+        // ADMIN OPERATIONS
+        // ==========================================
 
-            document.getElementById('stat-users').textContent = data.userCount;
-            document.getElementById('stat-rooms').textContent = data.roomCount;
+        /**
+         * Fetch platform statistics and user ledger
+         */
+        async function loadAdminPanel() {
+            try {
+                const res = await fetch(`${API}/admin/stats`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-auth-token': token 
+                    }
+                });
+                const data = await res.json();
 
-            const list = document.getElementById('user-list');
-            list.innerHTML = '';
-            data.users.forEach(u => {
-                list.innerHTML += `
-                    <div class="flex justify-between items-center bg-black/40 p-2 rounded">
-                        <span class="text-sm ${u.role === 'admin' ? 'text-yellow-500 font-bold' : 'text-gray-300'}">
-                            ${u.username} (${u.role})
-                        </span>
-                        ${u.role !== 'admin' ? `<button onclick="adminDeleteUser('${u._id}')" class="text-xs text-red-500 hover:text-red-400 font-bold">TERMINATE</button>` : ''}
-                    </div>
-                `;
-            });
-        }
+                document.getElementById('stat-users').textContent = data.userCount;
+                document.getElementById('stat-rooms').textContent = data.roomCount;
 
-        async function adminDeleteUser(targetId) {
-            if(!confirm("ADMIN ACTION: Terminate this user?")) return;
-            await fetch(`${API}/admin/delete-user`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user._id, targetId })
-            });
-            refreshUserData(); // Refresh list
-        }
-
-        // --- USER LOGIC ---
-        async function fetchHistory(currentUser) {
-            const res = await fetch(`${API}/admin/history/${currentUser._id}`);
-            const history = await res.json();
-            const list = document.getElementById('history-list');
-            
-            if (history.length > 0) {
+                const list = document.getElementById('user-list');
                 list.innerHTML = '';
-                history.reverse().forEach(h => {
+                
+                data.users.forEach(u => {
                     list.innerHTML += `
-                        <div class="border-b border-white/10 pb-2 mb-2">
-                            <p class="text-white font-bold">${h.roomName || 'Watched Video'}</p>
-                            <p class="text-[10px] text-gray-500">${new Date(h.date).toLocaleDateString()} • ${new Date(h.date).toLocaleTimeString()}</p>
+                        <div class="flex justify-between items-center bg-black/40 p-2 rounded border border-white/5">
+                            <span class="text-sm ${u.role === 'admin' ? 'text-yellow-500 font-bold' : 'text-gray-300'}">
+                                ${u.username} (${u.role})
+                            </span>
+                            ${u.role !== 'admin' ? `<button onclick="adminDeleteUser('${u._id}')" class="text-xs text-red-500 hover:text-red-400 font-bold px-2 py-1 bg-red-500/10 rounded">TERMINATE</button>` : ''}
                         </div>
                     `;
                 });
+            } catch (err) {
+                console.error("Failed to load admin panel", err);
             }
         }
-        
-        // ... (Keep Change Password and Delete Self functions same as before)
+
+        /**
+         * Execute administrative termination of a user account
+         */
+        async function adminDeleteUser(targetId) {
+            if(!confirm("ADMIN ACTION: Terminate this user? This cannot be undone.")) return;
+            
+            try {
+                const res = await fetch(`${API}/admin/delete-user`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-auth-token': token
+                    },
+                    body: JSON.stringify({ targetId })
+                });
+
+                if (res.ok) {
+                    loadAdminPanel(); // Refresh list automatically
+                } else {
+                    alert("Failed to terminate user.");
+                }
+            } catch (err) {
+                console.error("Termination request failed", err);
+            }
+        }
+
+        // ==========================================
+        // USER OPERATIONS
+        // ==========================================
+
+        /**
+         * Retrieve secure playback history for the authenticated user
+         */
+        async function fetchHistory() {
+            try {
+                const res = await fetch(`${API}/admin/history`, {
+                    headers: { 'x-auth-token': token }
+                });
+                
+                if (!res.ok) throw new Error("History fetch failed");
+                
+                const history = await res.json();
+                const list = document.getElementById('history-list');
+                
+                if (history.length > 0) {
+                    list.innerHTML = '';
+                    history.reverse().forEach(h => {
+                        list.innerHTML += `
+                            <div class="border-b border-white/10 pb-2 mb-2">
+                                <p class="text-white font-bold">${h.roomName || 'Watched Video'}</p>
+                                <p class="text-[10px] text-gray-500">${new Date(h.date).toLocaleDateString()} • ${new Date(h.date).toLocaleTimeString()}</p>
+                            </div>
+                        `;
+                    });
+                } else {
+                    list.innerHTML = '<p class="italic text-gray-500">No viewing history found.</p>';
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('history-list').innerHTML = '<p class="text-red-400">Failed to load history.</p>';
+            }
+        }
+
+        /**
+         * Handle password modification request
+         */
+        document.getElementById('pass-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPassword = document.getElementById('new-pass').value;
+            const btn = e.target.querySelector('button');
+            btn.textContent = "Updating...";
+
+            try {
+                const res = await fetch(`${API}/admin/change-password`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-auth-token': token
+                    },
+                    body: JSON.stringify({ newPassword })
+                });
+
+                if (res.ok) {
+                    alert("Password updated securely.");
+                    document.getElementById('new-pass').value = '';
+                } else {
+                    const err = await res.json();
+                    alert(err.error || "Update failed.");
+                }
+            } catch (err) {
+                console.error("Password update error", err);
+            } finally {
+                btn.textContent = "Update Password";
+            }
+        });
+
+        /**
+         * Handle self-service account deletion
+         */
+        async function deleteMyAccount() {
+            if(!confirm("CRITICAL WARNING: Are you absolutely sure you want to delete your account? All history will be lost.")) return;
+            
+            try {
+                const res = await fetch(`${API}/admin/delete-self`, {
+                    method: 'POST',
+                    headers: { 'x-auth-token': token }
+                });
+
+                if (res.ok) {
+                    localStorage.clear();
+                    window.location.href = 'index.html';
+                } else {
+                    alert("Failed to delete account. Please try again.");
+                }
+            } catch (err) {
+                console.error("Account deletion failed", err);
+            }
+        }
     </script>
 </body>
 </html>

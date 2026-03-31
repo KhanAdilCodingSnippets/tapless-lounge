@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TAPLESS | Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #050505; 
+            color: #e2e8f0; 
+            background-image: 
+                linear-gradient(rgba(20, 0, 0, 0.8) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(20, 0, 0, 0.8) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel { background: rgba(15, 15, 15, 0.9); border: 1px solid rgba(255, 0, 0, 0.2); backdrop-filter: blur(10px); }
+        .btn-nuke { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .btn-nuke:hover { background: #ef4444; color: white; box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #ef4444; border-radius: 10px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden selection:bg-red-900 selection:text-white">
+
+    <nav class="h-16 flex items-center justify-between px-6 border-b border-red-900/50 bg-black/80 z-20 shrink-0">
+        <div class="flex items-center gap-4">
+            <div class="w-3 h-3 rounded-full bg-red-600 animate-pulse shadow-[0_0_10px_#dc2626]"></div>
+            <h1 class="text-xl font-black tracking-[0.3em] text-red-600 uppercase">God Mode <span class="text-white/30 font-light">| Command Center</span></h1>
+        </div>
+        <div class="flex items-center gap-6">
+            <a href="dashboard.html" class="text-xs font-bold text-gray-400 hover:text-white uppercase tracking-widest transition">← Back to Lounge</a>
+            <button onclick="logout()" class="text-xs font-bold bg-white text-black px-4 py-1.5 rounded hover:bg-gray-300 transition uppercase tracking-widest">Logout</button>
+        </div>
+    </nav>
+
+    <div class="flex-1 flex gap-6 p-6 overflow-hidden max-w-[1600px] mx-auto w-full">
+        
+        <div class="flex-[2] flex flex-col gap-6 overflow-hidden">
+            
+            <div class="grid grid-cols-2 gap-6 shrink-0">
+                <div class="glass-panel p-6 rounded-xl relative overflow-hidden group">
+                    <div class="absolute -right-4 -top-4 text-8xl text-red-500/5 group-hover:text-red-500/10 transition duration-500">👤</div>
+                    <p class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-bold mb-2">Total Registered Users</p>
+                    <p class="text-5xl font-black mono text-white" id="stat-users">--</p>
+                </div>
+                <div class="glass-panel p-6 rounded-xl relative overflow-hidden group">
+                    <div class="absolute -right-4 -top-4 text-8xl text-red-500/5 group-hover:text-red-500/10 transition duration-500">🎬</div>
+                    <p class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-bold mb-2">Active Theaters</p>
+                    <p class="text-5xl font-black mono text-white" id="stat-rooms">--</p>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-xl flex-1 flex flex-col overflow-hidden">
+                <div class="p-4 border-b border-red-900/30 bg-black/40 flex justify-between items-center">
+                    <h2 class="text-sm font-bold uppercase tracking-widest text-gray-300">Identity Ledger</h2>
+                    <input type="text" id="search-users" placeholder="Search by username..." class="bg-black border border-red-900/50 text-white text-xs px-3 py-1.5 rounded outline-none focus:border-red-500 w-64 mono placeholder:text-gray-600">
+                </div>
+                <div class="flex-1 overflow-y-auto p-2" id="user-list">
+                    <div class="p-8 text-center text-gray-600 text-xs mono animate-pulse">Decrypting user database...</div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="flex-[1] glass-panel rounded-xl flex flex-col overflow-hidden min-w-[400px]">
+            <div class="p-4 border-b border-red-900/30 bg-black/40 flex justify-between items-center">
+                <h2 class="text-sm font-bold uppercase tracking-widest text-red-500 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    Live Operations
+                </h2>
+                <button onclick="fetchAdminData()" class="text-[10px] text-gray-400 hover:text-white uppercase tracking-widest transition">⟳ Refresh</button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-2 space-y-2" id="room-list">
+                </div>
+        </div>
+
+    </div>
+
+    <script>
+        const API = '/api';
+        const user = JSON.parse(localStorage.getItem('user'));
+        const token = localStorage.getItem('token');
+        
+        // 1. SECURITY GATEWAY
+        if (!user || !token || user.role !== 'admin') {
+            document.body.innerHTML = '<div class="h-screen flex items-center justify-center text-red-500 font-black text-4xl uppercase tracking-[0.5em]">Security Breach Detected</div>';
+            setTimeout(() => { window.location.href = 'index.html'; }, 2000);
+        }
+
+        let allUsers = [];
+
+        // 2. FETCH DATA ENGINE
+        async function fetchAdminData() {
+            try {
+                // Fetch Stats & Users
+                const statRes = await fetch(`${API}/admin/stats`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-auth-token': token }
+                });
+                const statData = await statRes.json();
+                
+                document.getElementById('stat-users').textContent = statData.userCount || 0;
+                document.getElementById('stat-rooms').textContent = statData.roomCount || 0;
+                
+                allUsers = statData.users || [];
+                renderUsers(allUsers);
+
+                // Fetch Active Rooms
+                const roomRes = await fetch(`${API}/rooms/list`, { headers: { 'x-auth-token': token } });
+                const roomData = await roomRes.json();
+                renderRooms(roomData);
+
+            } catch (err) {
+                console.error("Admin Fetch Error:", err);
+            }
+        }
+
+        // 3. RENDER USERS
+        function renderUsers(users) {
+            const list = document.getElementById('user-list');
+            list.innerHTML = '';
+            
+            if (users.length === 0) return list.innerHTML = '<p class="text-center text-gray-600 text-xs mt-10 mono">No users found.</p>';
+
+            users.forEach(u => {
+                const isAdmin = u.role === 'admin';
+                list.innerHTML += `
+                    <div class="flex items-center justify-between p-4 mb-2 bg-black/50 border border-white/5 rounded-lg hover:border-red-900/50 transition group">
+                        <div class="flex flex-col">
+                            <span class="text-sm font-bold text-white flex items-center gap-2">
+                                ${u.username} 
+                                ${isAdmin ? '<span class="px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-[9px] uppercase tracking-widest rounded border border-yellow-500/20">Admin</span>' : ''}
+                            </span>
+                            <span class="text-xs text-gray-500 mono">${u._id}</span>
+                        </div>
+                        ${!isAdmin ? `
+                            <button onclick="terminateUser('${u._id}', '${u.username}')" class="btn-nuke px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition opacity-0 group-hover:opacity-100">
+                                Terminate
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        // 4. RENDER ROOMS
+        function renderRooms(rooms) {
+            const list = document.getElementById('room-list');
+            list.innerHTML = '';
+
+            if (rooms.length === 0) return list.innerHTML = '<p class="text-center text-gray-600 text-xs mt-10 mono">No active rooms.</p>';
+
+            rooms.forEach(room => {
+                const isLocked = room.password ? true : false;
+                list.innerHTML += `
+                    <div class="p-4 bg-black/50 border border-white/5 rounded-lg">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h4 class="text-sm font-bold text-white truncate">${room.name}</h4>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Host: <span class="text-gray-300 font-bold">${room.host.username}</span></p>
+                            </div>
+                            ${isLocked ? '<span class="text-[10px] text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded border border-yellow-500/20">LOCKED</span>' : '<span class="text-[10px] text-green-500 bg-green-500/10 px-2 py-1 rounded border border-green-500/20">PUBLIC</span>'}
+                        </div>
+                        <div class="flex justify-between items-center pt-3 border-t border-white/5">
+                            <span class="text-[10px] text-gray-600 mono">${room.roomId}</span>
+                            <button onclick="forceCloseRoom('${room._id}', '${room.name}')" class="text-[10px] text-red-500 hover:text-white uppercase font-bold tracking-widest transition">Force Close ✕</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // 5. DESTRUCTIVE ACTIONS (With Security Checks)
+        async function terminateUser(id, username) {
+            const confirmation = prompt(`CRITICAL ACTION: Terminating user '${username}'.\n\nType 'TERMINATE' to execute:`);
+            if (confirmation !== "TERMINATE") return alert("Termination aborted.");
+
+            try {
+                const res = await fetch(`${API}/admin/delete-user`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+                    body: JSON.stringify({ targetId: id })
+                });
+                
+                if (res.ok) fetchAdminData();
+                else alert("Execution failed.");
+            } catch (err) { console.error(err); }
+        }
+
+        async function forceCloseRoom(id, roomName) {
+            const confirmation = prompt(`CRITICAL ACTION: Nuking theater '${roomName}'.\n\nType 'NUKE' to execute:`);
+            if (confirmation !== "NUKE") return alert("Action aborted.");
+
+            try {
+                const res = await fetch(`${API}/admin/force-delete-room`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+                    body: JSON.stringify({ roomId: id })
+                });
+                
+                if (res.ok) fetchAdminData();
+                else alert("Execution failed.");
+            } catch (err) { console.error(err); }
+        }
+
+        // Search Filter
+        document.getElementById('search-users').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = allUsers.filter(u => u.username.toLowerCase().includes(term) || u._id.includes(term));
+            renderUsers(filtered);
+        });
+
+        function logout() { localStorage.clear(); window.location.href = 'index.html'; }
+
+        // Boot
+        fetchAdminData();
+        setInterval(fetchAdminData, 10000); // Auto-refresh every 10 seconds
+    </script>
+</body>
+</html>

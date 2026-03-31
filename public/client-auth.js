@@ -1,13 +1,23 @@
+/**
+ * Tapless Lounge | Client-Side Authentication Engine
+ * Handles secure token storage and session management.
+ */
+
 const API_AUTH = '/api/auth';
 
-// 1. LOGIN LOGIC
+// 1. LOGIN HANDLER
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    const submitBtn = e.target.querySelector('button');
+    const originalText = submitBtn.textContent;
     
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
 
     try {
+        setLoading(submitBtn, true);
+
         const res = await fetch(`${API_AUTH}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -16,29 +26,40 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
         const data = await res.json();
 
-        if (data.success) {
-            // Save User & Token
+        if (res.ok && data.success) {
+            // Clear any lingering old sessions
+            localStorage.clear();
+            
+            // Securely store credentials
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('token', data.token);
-            // Redirect
+            
+            // Seamless transition to the hub
             window.location.href = 'dashboard.html';
         } else {
-            showError(data.error);
+            showError(data.error || "Login failed. Check your credentials.");
+            setLoading(submitBtn, false, originalText);
         }
     } catch (err) {
-        showError('Server connection failed');
+        showError('Unable to reach the server. Please try again later.');
+        setLoading(submitBtn, false, originalText);
     }
 });
 
-// 2. REGISTER LOGIC (With Auto-Login)
+// 2. REGISTRATION HANDLER (With Instant Provisioning)
 document.getElementById('register-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
+    const submitBtn = e.target.querySelector('button');
+    const originalText = submitBtn.textContent;
+
     const username = document.getElementById('reg-username').value;
     const email = document.getElementById('reg-email').value;
     const password = document.getElementById('reg-password').value;
 
     try {
+        setLoading(submitBtn, true);
+
         const res = await fetch(`${API_AUTH}/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -47,36 +68,50 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
 
         const data = await res.json();
 
-        if (data.success) {
-            // AUTO LOGIN HAPPENS HERE
-            // We treat registration exactly like login now
+        if (res.ok && data.success) {
+            localStorage.clear();
+            
+            // Auto-login after successful registration
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('token', data.token);
             
-            // Immediate Redirect (No flipping back needed)
             window.location.href = 'dashboard.html';
         } else {
-            showError(data.error);
+            showError(data.error || "Registration failed. Email might be taken.");
+            setLoading(submitBtn, false, originalText);
         }
     } catch (err) {
-        showError('Server connection failed');
+        showError('Registration server is currently unavailable.');
+        setLoading(submitBtn, false, originalText);
     }
 });
 
-// Helper: Show Error Message
+/**
+ * UI Helper: Updates button state during API calls
+ */
+function setLoading(btn, isLoading, text = "Processing...") {
+    btn.disabled = isLoading;
+    btn.textContent = isLoading ? text : text;
+    btn.style.opacity = isLoading ? "0.7" : "1";
+}
+
+/**
+ * UI Helper: Displays feedback to the user
+ */
 function showError(msg) {
     const errorBox = document.getElementById('error-msg');
     errorBox.textContent = msg;
     errorBox.classList.remove('hidden');
     
-    // Shake animation for effect
-    const card = document.querySelector('.flip-container');
-    card.classList.add('animate-pulse');
-    setTimeout(() => card.classList.remove('animate-pulse'), 500);
+    // Visual feedback for errors
+    const card = document.querySelector('.flipper');
+    card.classList.add('shake-effect');
+    setTimeout(() => card.classList.remove('shake-effect'), 500);
 }
 
-// Ensure the flip function is available globally
+// Global rotation helper
 window.rotateCard = function() {
-    document.getElementById('card-flipper').classList.toggle('is-flipped');
+    const flipper = document.getElementById('card-flipper');
+    flipper.classList.toggle('is-flipped');
     document.getElementById('error-msg').classList.add('hidden');
 }

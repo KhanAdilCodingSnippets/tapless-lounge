@@ -5,14 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TAPLESS | Premiere Lounge</title>
     <meta name="description" content="Join Tapless Lounge to connect in real-time rooms. Simple, fast, and secure." />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta property="og:title" content="Tapless Lounge" />
-<meta property="og:image" content="/preview.png" />
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="manifest" href="/site.webmanifest">
+    <meta property="og:title" content="Tapless Lounge" />
+    <meta property="og:image" content="/preview.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="manifest" href="/site.webmanifest">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;600;900&display=swap" rel="stylesheet">
     <style>
@@ -66,7 +65,9 @@
                 <span class="text-2xl">+</span> CREATE PREMIERE
             </button>
         </div>
+
         <div id="room-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+        
         <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 opacity-60">
             <p class="poster-font text-3xl text-gray-500">The Theaters are Empty</p>
         </div>
@@ -114,133 +115,177 @@
         </div>
     </div>
 
-   <script>
-    const API_URL = '/api';
-    const user = JSON.parse(localStorage.getItem('user'));
-    const token = localStorage.getItem('token');
-    
-    // Auth Check
-    if (!user || !token) window.location.href = 'index.html';
-    else document.getElementById('username-display').textContent = user.username.toUpperCase();
-
-    // Tab Switching Logic
-    let mode = 'yt';
-    function switchTab(m) {
-        mode = m;
-        const ytInput = document.getElementById('input-yt');
-        const localInput = document.getElementById('input-local');
-        const tabYt = document.getElementById('tab-yt');
-        const tabLocal = document.getElementById('tab-local');
-
-        if(mode === 'yt') { 
-            ytInput.classList.remove('hidden'); 
-            localInput.classList.add('hidden'); 
-            tabYt.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-active"; 
-            tabLocal.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-inactive"; 
-        } else { 
-            ytInput.classList.add('hidden'); 
-            localInput.classList.remove('hidden'); 
-            tabLocal.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-active"; 
-            tabYt.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-inactive"; 
+    <script>
+        // ==========================================
+        // 1. STATE & INITIALIZATION
+        // ==========================================
+        const API_URL = '/api';
+        const user = JSON.parse(localStorage.getItem('user'));
+        const token = localStorage.getItem('token');
+        
+        if (!user || !token) {
+            window.location.href = 'index.html';
+        } else {
+            document.getElementById('username-display').textContent = user.username.toUpperCase();
         }
-    }
 
-    // Create Room
-    document.getElementById('create-room-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = e.target.querySelector('button'); 
-        btn.textContent = "CREATING..."; 
-        btn.disabled = true;
+        // ==========================================
+        // 2. MODAL & TAB LOGIC
+        // ==========================================
+        let mode = 'yt';
+        
+        function switchTab(m) {
+            mode = m;
+            const ytInput = document.getElementById('input-yt');
+            const localInput = document.getElementById('input-local');
+            const tabYt = document.getElementById('tab-yt');
+            const tabLocal = document.getElementById('tab-local');
 
-        const name = document.getElementById('room-name').value;
-        const password = document.getElementById('room-password').value; 
-        const videoUrl = mode === 'yt' ? document.getElementById('room-url').value : 'LOCAL_FILE_MODE';
-
-        try {
-            const res = await fetch(`${API_URL}/rooms/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, videoUrl, password, hostId: user._id })
-            });
-            const data = await res.json();
-            if(data.roomId) window.location.href = `room.html?id=${data.roomId}`;
-            else { alert("Error creating room"); btn.disabled = false; btn.textContent = "OPEN THEATER"; }
-        } catch (err) { console.error(err); btn.disabled = false; btn.textContent = "OPEN THEATER"; }
-    });
-
-    // Fetch & Display Rooms
-    async function fetchRooms() {
-        try {
-            const res = await fetch(`${API_URL}/rooms/list`);
-            const rooms = await res.json();
-            const grid = document.getElementById('room-grid');
-            grid.innerHTML = '';
-
-            if(rooms.length === 0) {
-                document.getElementById('empty-state').classList.remove('hidden');
-            } else {
-                document.getElementById('empty-state').classList.add('hidden');
-                rooms.forEach(room => {
-                    const isHost = room.host._id === user._id;
-                    const isLocked = room.password && room.password.length > 0; 
-                    
-                    let thumbnail = room.videoUrl !== 'LOCAL_FILE_MODE' 
-                        ? `https://img.youtube.com/vi/${getYouTubeID(room.videoUrl)}/mqdefault.jpg` 
-                        : 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=600&auto=format&fit=crop';
-                    
-                    grid.innerHTML += `
-                        <div class="room-card rounded-xl overflow-hidden group relative flex flex-col h-full">
-                            <div class="h-48 bg-black relative overflow-hidden">
-                                <img src="${thumbnail}" class="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition duration-700 transform group-hover:scale-110">
-                                <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
-                                <span class="absolute top-3 left-3 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm shadow-lg flex items-center gap-1"><span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE</span>
-                                ${isLocked ? '<span class="absolute top-3 right-3 text-yellow-500 text-xs font-bold bg-black/50 px-2 py-1 rounded">🔒 LOCKED</span>' : ''}
-                            </div>
-                            <div class="p-6 flex-1 flex flex-col justify-between border-t border-white/5">
-                                <div>
-                                    <h4 class="text-2xl font-bold text-white mb-1 truncate poster-font tracking-wide group-hover:text-yellow-400 transition">${room.name}</h4>
-                                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-4">Host: <span class="text-gray-200 font-bold">${room.host.username}</span></p>
-                                </div>
-                                <div class="flex gap-3 mt-4">
-                                    <button onclick="goToRoom('${room.roomId}')" class="flex-1 bg-white/5 hover:bg-white text-white hover:text-black font-bold py-3 rounded text-xs tracking-widest uppercase transition border border-white/10 hover:border-white">
-                                        ${isLocked ? 'Unlock & Enter' : 'Enter Theater'}
-                                    </button>
-                                    ${isHost ? `<button onclick="deleteRoom('${room._id}')" class="bg-red-500/10 hover:bg-red-600 text-red-500 hover:text-white px-4 rounded transition border border-red-500/20">🗑</button>` : ''}
-                                </div>
-                            </div>
-                        </div>`;
-                });
+            if(mode === 'yt') { 
+                ytInput.classList.remove('hidden'); 
+                localInput.classList.add('hidden'); 
+                tabYt.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-active"; 
+                tabLocal.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-inactive"; 
+            } else { 
+                ytInput.classList.add('hidden'); 
+                localInput.classList.remove('hidden'); 
+                tabLocal.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-active"; 
+                tabYt.className = "flex-1 pb-2 text-xs font-bold uppercase tracking-widest tab-inactive"; 
             }
-        } catch(e) { console.error(e); }
-    }
+        }
 
-    function getYouTubeID(url) { 
-        if(!url) return null; 
-        const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/); 
-        return match && match[2].length === 11 ? match[2] : null; 
-    }
-    
-    function goToRoom(roomId) {
-        window.location.href = `room.html?id=${roomId}`;
-    }
+        function openModal() { document.getElementById('create-modal').classList.remove('hidden'); }
+        function closeModal() { document.getElementById('create-modal').classList.add('hidden'); }
+        function logout() { localStorage.clear(); window.location.href = 'index.html'; }
 
-    async function deleteRoom(dbId) {
-        if(!confirm("Close this theater room?")) return;
-        await fetch(`${API_URL}/rooms/delete`, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ roomId: dbId, hostId: user._id }) 
+        // ==========================================
+        // 3. SECURE ROOM CREATION
+        // ==========================================
+        document.getElementById('create-room-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button'); 
+            btn.textContent = "CREATING..."; 
+            btn.disabled = true;
+
+            const name = document.getElementById('room-name').value;
+            const password = document.getElementById('room-password').value; 
+            const videoUrl = mode === 'yt' ? document.getElementById('room-url').value : 'LOCAL_FILE_MODE';
+
+            try {
+                const res = await fetch(`${API_URL}/rooms/create`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-auth-token': token // Secure JWT Verification
+                    },
+                    body: JSON.stringify({ name, videoUrl, password }) // hostId removed for security
+                });
+                const data = await res.json();
+                
+                if (res.ok && data.roomId) {
+                    window.location.href = `room.html?id=${data.roomId}`;
+                } else { 
+                    alert(data.msg || data.error || "Error creating room"); 
+                    btn.disabled = false; 
+                    btn.textContent = "OPEN THEATER"; 
+                }
+            } catch (err) { 
+                console.error("Room creation failed:", err); 
+                btn.disabled = false; 
+                btn.textContent = "OPEN THEATER"; 
+            }
         });
-        fetchRooms();
-    }
 
-    function logout() { localStorage.clear(); window.location.href = 'index.html'; }
-    function openModal() { document.getElementById('create-modal').classList.remove('hidden'); }
-    function closeModal() { document.getElementById('create-modal').classList.add('hidden'); }
+        // ==========================================
+        // 4. ROOM RENDERING & MANAGEMENT
+        // ==========================================
+        async function fetchRooms() {
+            try {
+                const res = await fetch(`${API_URL}/rooms/list`, {
+                    headers: { 'x-auth-token': token }
+                });
+                
+                if (!res.ok) throw new Error("Failed to fetch rooms");
+                
+                const rooms = await res.json();
+                const grid = document.getElementById('room-grid');
+                grid.innerHTML = '';
 
-    // Init
-    fetchRooms(); 
-    setInterval(fetchRooms, 5000);
-</script>
+                if (rooms.length === 0) {
+                    document.getElementById('empty-state').classList.remove('hidden');
+                } else {
+                    document.getElementById('empty-state').classList.add('hidden');
+                    
+                    rooms.forEach(room => {
+                        const isHost = room.host._id === user._id;
+                        const isLocked = room.password && room.password.length > 0; 
+                        
+                        let thumbnail = room.videoUrl !== 'LOCAL_FILE_MODE' 
+                            ? `https://img.youtube.com/vi/${getYouTubeID(room.videoUrl)}/mqdefault.jpg` 
+                            : 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=600&auto=format&fit=crop';
+                        
+                        grid.innerHTML += `
+                            <div class="room-card rounded-xl overflow-hidden group relative flex flex-col h-full">
+                                <div class="h-48 bg-black relative overflow-hidden">
+                                    <img src="${thumbnail}" class="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition duration-700 transform group-hover:scale-110">
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+                                    <span class="absolute top-3 left-3 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm shadow-lg flex items-center gap-1"><span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE</span>
+                                    ${isLocked ? '<span class="absolute top-3 right-3 text-yellow-500 text-xs font-bold bg-black/50 px-2 py-1 rounded">🔒 LOCKED</span>' : ''}
+                                </div>
+                                <div class="p-6 flex-1 flex flex-col justify-between border-t border-white/5">
+                                    <div>
+                                        <h4 class="text-2xl font-bold text-white mb-1 truncate poster-font tracking-wide group-hover:text-yellow-400 transition">${room.name}</h4>
+                                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-4">Host: <span class="text-gray-200 font-bold">${room.host.username}</span></p>
+                                    </div>
+                                    <div class="flex gap-3 mt-4">
+                                        <button onclick="goToRoom('${room.roomId}')" class="flex-1 bg-white/5 hover:bg-white text-white hover:text-black font-bold py-3 rounded text-xs tracking-widest uppercase transition border border-white/10 hover:border-white">
+                                            ${isLocked ? 'Unlock & Enter' : 'Enter Theater'}
+                                        </button>
+                                        ${isHost ? `<button onclick="deleteRoom('${room._id}')" class="bg-red-500/10 hover:bg-red-600 text-red-500 hover:text-white px-4 rounded transition border border-red-500/20">🗑</button>` : ''}
+                                    </div>
+                                </div>
+                            </div>`;
+                    });
+                }
+            } catch(e) { 
+                console.error("Error loading active rooms:", e); 
+            }
+        }
+
+        // Secure Delete Implementation
+        async function deleteRoom(dbId) {
+            if(!confirm("Are you sure you want to close this theater? This will disconnect all peers.")) return;
+            
+            try {
+                await fetch(`${API_URL}/rooms/delete`, { 
+                    method: 'POST', 
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-auth-token': token // Secure JWT Verification
+                    }, 
+                    body: JSON.stringify({ roomId: dbId }) // hostId removed for security
+                });
+                
+                fetchRooms(); // Refresh the grid
+            } catch (err) {
+                console.error("Failed to delete room:", err);
+            }
+        }
+
+        // Helper: Extract YouTube ID for thumbnails
+        function getYouTubeID(url) { 
+            if(!url) return null; 
+            const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/); 
+            return match && match[2].length === 11 ? match[2] : null; 
+        }
+        
+        function goToRoom(roomId) {
+            window.location.href = `room.html?id=${roomId}`;
+        }
+
+        // Initialize App
+        fetchRooms(); 
+        setInterval(fetchRooms, 5000); // Polling mechanism to keep the room grid live
+    </script>
 </body>
 </html>
