@@ -25,7 +25,7 @@ const RoomSchema = new mongoose.Schema({
     type: String, 
     default: ''
   },
-  password: {  // <--- ADDED THIS FIELD
+  password: {  
     type: String,
     default: ""
   },
